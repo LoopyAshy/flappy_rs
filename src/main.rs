@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::time::Duration;
 
 use bevy::{color::palettes::css::RED, prelude::*};
@@ -31,6 +33,7 @@ fn main() {
                 name: Some("flappy_bird".to_string()),
                 resolution: (WINDOW_WIDTH, WINDOW_HEIGHT).into(),
                 resizable: false,
+                enabled_buttons: bevy::window::EnabledButtons { minimize: true, maximize: false, close: true },
                 ..default()
             }),
             ..default()
