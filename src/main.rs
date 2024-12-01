@@ -75,7 +75,7 @@ fn main() {
         .add_systems(Update, await_restart.run_if(in_state(GameState::Loss)))
         .add_systems(
             Update,
-            draw_collider_gizmos.run_if(|draw_colliders: Res<DrawColliders>| draw_colliders.0),
+            draw_collider_gizmos.run_if(|draw_colliders: Res<DrawColliders>| **draw_colliders),
         )
         .add_systems(OnEnter(GameState::Loss), on_loss)
         .add_systems(OnExit(GameState::Loss), on_restart)
@@ -239,7 +239,7 @@ fn on_restart(
     }
     **score = 0;
     for mut score_text in score_text.iter_mut() {
-        score_text.sections[0].value = score.0.to_string();
+        score_text.sections[0].value = score.to_string();
     }
     for (mut transform, mut velocity) in birb.iter_mut() {
         transform.translation.y = 0.0;
@@ -262,12 +262,12 @@ fn await_restart(
     if keyboard_input.just_pressed(KeyCode::Enter) {
         for (mut transform, mut velocity) in birb_query.iter_mut() {
             transform.translation.y = 0.0;
-            velocity.0 = 0.0;
+            **velocity = 0.0;
         }
         for pipe in pipes_query.iter() {
             commands.entity(pipe).despawn_recursive();
         }
-        score.0 = 0;
+        **score = 0;
         next_state.set(GameState::Playing);
     }
 }
@@ -348,7 +348,7 @@ fn spawn_pipe(
         // Updates the delay between the pipes based on the score to make the game harder as the player progresses
         timer.set_duration(
             (Duration::from_millis(PIPE_SPAWN_INTERVAL_MAX_MS)
-                - Duration::from_millis(score.0 as u64 / 2))
+                - Duration::from_millis(**score as u64 / 2))
             .min(Duration::from_millis(PIPE_SPAWN_INTERVAL_MIN_MS)),
         );
         const HALF_HEIGHT: f32 = WINDOW_HEIGHT / 2.0;
@@ -422,6 +422,6 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>
         {
             continue;
         }
-        transform.translation += Vec3::new(0.0, velocity.0, 0.0) * time.delta_seconds();
+        transform.translation += Vec3::new(0.0, **velocity, 0.0) * time.delta_seconds();
     }
 }
