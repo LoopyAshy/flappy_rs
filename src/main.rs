@@ -58,7 +58,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                update_score,
+                score_tick,
                 on_space_pressed,
                 apply_gravity,
                 apply_velocity,
@@ -77,6 +77,12 @@ fn main() {
             Update,
             draw_collider_gizmos.run_if(|draw_colliders: Res<DrawColliders>| draw_colliders.0),
         )
+        .add_systems(OnEnter(GameState::Loss), on_loss)
+        .add_systems(OnExit(GameState::Loss), on_restart)
+        .add_systems(
+            PostUpdate,
+            on_score_change.run_if(resource_changed::<Score>),
+        )
         .run();
 }
 
@@ -89,23 +95,23 @@ enum GameState {
 
 //Resources
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 /// A resource for storing the current score
 struct Score(u32);
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 /// A timer for tracking the time between updating the score
 struct ScoreTimer(Timer);
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 /// A resource for drawing the rectangle colliders of entities when true, this is for debugging purposes and is usually false or not inserted
 struct DrawColliders(bool);
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 /// A resource for the gravity of the game, we subtract it from the velocity of the birb every frame
 struct Gravity(f32);
 
-#[derive(Debug, Resource)]
+#[derive(Debug, Resource, Deref, DerefMut)]
 /// A timer for tracking the time between spawning pipes
 struct PipeSpawnTimer(Timer);
 
@@ -115,11 +121,11 @@ struct PipeSpawnTimer(Timer);
 /// A marker component for the score text
 struct ScoreText;
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Deref, DerefMut)]
 /// A component for the y velocity of an entity as we do not care about x movement in this game, this component allows the entity to move each frame based on the stored velocity
 struct Velocity(f32);
 
-#[derive(Debug, Component)]
+#[derive(Debug, Component, Deref, DerefMut)]
 /// A component for a rectangle collider for a entity
 struct Collider(Rect);
 
@@ -130,6 +136,10 @@ struct Birb;
 #[derive(Debug, Component)]
 /// A marker component for pipes
 struct Pipe;
+
+#[derive(Debug, Component)]
+/// A marker component for the loss text
+struct LossText;
 
 //Bundles
 
@@ -190,10 +200,53 @@ impl PipeBundle {
 
 //Systems
 
-/// Updates the score text to the current score
-fn draw_score(score: u32, mut text: Query<&mut Text, With<ScoreText>>) {
-    for mut text in text.iter_mut() {
-        text.sections[0].value = score.to_string();
+/// Spawns the loss text when the player loses
+fn on_loss(mut commands: Commands) {
+    
+    let text = TextBundle::from_section(
+            "You lost!\nPress Enter to Restart",
+            TextStyle {
+                font_size: 40.0,
+                color: Color::WHITE,
+                ..default()
+            }
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            margin: UiRect::all(Val::Auto),
+            display: Display::Block,
+            ..default()
+        });
+
+    commands.spawn((
+        text,
+        LossText,
+    ));
+}
+
+/// Resets the game state to default values
+fn on_restart(
+    mut commands: Commands,
+    loss_text: Query<Entity, With<LossText>>,
+    mut score: ResMut<Score>,
+    mut score_text: Query<&mut Text, With<ScoreText>>,
+    mut birb: Query<(&mut Transform, &mut Velocity), With<Birb>>,
+    pipes: Query<Entity, With<Pipe>>,
+) {
+    for loss_text in loss_text.iter() {
+        commands.entity(loss_text).despawn_recursive();
+    }
+    **score = 0;
+    for mut score_text in score_text.iter_mut() {
+        score_text.sections[0].value = score.0.to_string();
+    }
+    for (mut transform, mut velocity) in birb.iter_mut() {
+        transform.translation.y = 0.0;
+        **velocity = 0.0;
+    }
+    for pipe in pipes.iter() {
+        commands.entity(pipe).despawn_recursive();
     }
 }
 
@@ -220,15 +273,20 @@ fn await_restart(
 }
 
 /// Updates the score every 750ms by 1 point
-fn update_score(
+fn score_tick(
     time: Res<Time>,
     mut score: ResMut<Score>,
-    mut score_timer: ResMut<ScoreTimer>,
-    text: Query<&mut Text, With<ScoreText>>,
+    mut score_timer: ResMut<ScoreTimer>
 ) {
-    if score_timer.0.tick(time.delta()).just_finished() {
-        score.0 += 1;
-        draw_score(score.0, text);
+    if score_timer.tick(time.delta()).just_finished() {
+        **score += 1;
+    }
+}
+
+/// Updates the score text to the current score
+fn on_score_change(score: Res<Score>, mut text: Query<&mut Text, With<ScoreText>>) {
+    for mut text in text.iter_mut() {
+        text.sections[0].value = score.to_string();
     }
 }
 
@@ -259,13 +317,13 @@ fn on_birb_collide(
 ) {
     for (birb_collider, birb_transform) in birb_query.iter() {
         let birb_rect = Rect {
-            min: birb_transform.translation.truncate() + birb_collider.0.min,
-            max: birb_transform.translation.truncate() + birb_collider.0.max,
+            min: birb_transform.translation.truncate() + birb_collider.min,
+            max: birb_transform.translation.truncate() + birb_collider.max,
         };
         for (pipe_collider, pipe_transform) in pipes.iter() {
             let pipe_rect = Rect {
-                min: pipe_transform.translation.truncate() + pipe_collider.0.min,
-                max: pipe_transform.translation.truncate() + pipe_collider.0.max,
+                min: pipe_transform.translation.truncate() + pipe_collider.min,
+                max: pipe_transform.translation.truncate() + pipe_collider.max,
             };
             if birb_rect.max.x > pipe_rect.min.x
                 && birb_rect.min.x < pipe_rect.max.x
@@ -286,9 +344,9 @@ fn spawn_pipe(
     time: Res<Time>,
     score: Res<Score>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
+    if timer.tick(time.delta()).just_finished() {
         // Updates the delay between the pipes based on the score to make the game harder as the player progresses
-        timer.0.set_duration(
+        timer.set_duration(
             (Duration::from_millis(PIPE_SPAWN_INTERVAL_MAX_MS)
                 - Duration::from_millis(score.0 as u64 / 2))
             .min(Duration::from_millis(PIPE_SPAWN_INTERVAL_MIN_MS)),
@@ -317,12 +375,7 @@ fn spawn_pipe(
 /// Draws a rectangle gizmo for all entities with a Collider and Transform component
 fn draw_collider_gizmos(query: Query<(&Collider, &Transform)>, mut gizmos: Gizmos) {
     for (collider, transform) in query.iter() {
-        gizmos.rect_2d(
-            transform.translation.truncate(),
-            0.0,
-            collider.0.size(),
-            RED,
-        );
+        gizmos.rect_2d(transform.translation.truncate(), 0.0, collider.size(), RED);
     }
 }
 
@@ -347,7 +400,7 @@ fn move_pipes(
 fn on_space_pressed(mut query: Query<&mut Velocity>, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         for mut velocity in query.iter_mut() {
-            velocity.0 = 150.0;
+            **velocity = 150.0;
         }
     }
 }
@@ -355,16 +408,16 @@ fn on_space_pressed(mut query: Query<&mut Velocity>, keyboard_input: Res<ButtonI
 /// Applies gravity to all entities with a Velocity component
 fn apply_gravity(mut query: Query<&mut Velocity>, gravity: Res<Gravity>, time: Res<Time>) {
     for mut velocity in query.iter_mut() {
-        velocity.0 -= gravity.0 * time.delta_seconds();
-        velocity.0 = velocity.0.clamp(MIN_VELOCITY, MAX_VELOCITY);
+        **velocity -= **gravity * time.delta_seconds();
+        **velocity = velocity.clamp(MIN_VELOCITY, MAX_VELOCITY);
     }
 }
 
 /// Applies velocity to all entities with a Transform and Velocity component
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in query.iter_mut() {
-        if velocity.0 >= 0.0 && transform.translation.y >= ((WINDOW_HEIGHT - BIRB_HEIGHT) / 2.0)
-            || velocity.0 <= 0.0
+        if **velocity >= 0.0 && transform.translation.y >= ((WINDOW_HEIGHT - BIRB_HEIGHT) / 2.0)
+            || **velocity <= 0.0
                 && transform.translation.y <= -((WINDOW_HEIGHT - BIRB_HEIGHT) / 2.0)
         {
             continue;
