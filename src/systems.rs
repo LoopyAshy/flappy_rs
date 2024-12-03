@@ -1,4 +1,3 @@
-use crate::bundles::*;
 use crate::components::*;
 use crate::resources::*;
 use crate::*;
@@ -6,23 +5,20 @@ use bevy::prelude::*;
 
 /// Spawns the loss text when the player loses
 pub fn on_loss(mut commands: Commands) {
-    let text = TextBundle::from_section(
-        "You lost!\nPress Enter to Restart",
-        TextStyle {
-            font_size: 40.0,
-            color: Color::WHITE,
+    commands.spawn((
+        Text::new("You lost!\nPress Enter to Restart"),
+        TextLayout {
+            justify: JustifyText::Center,
             ..default()
         },
-    )
-    .with_text_justify(JustifyText::Center)
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        margin: UiRect::all(Val::Auto),
-        display: Display::Block,
-        ..default()
-    });
-
-    commands.spawn((text, LossText));
+        Node {
+            display: Display::Block,
+            margin: UiRect::all(Val::Auto),
+            position_type: PositionType::Absolute,
+            ..default()
+        },
+        LossText,
+    ));
 }
 
 /// Resets the game state to default values
@@ -39,7 +35,7 @@ pub fn on_restart(
     }
     **score = 0;
     for mut score_text in score_text.iter_mut() {
-        score_text.sections[0].value = score.to_string();
+        **score_text = score.to_string();
     }
     for (mut transform, mut velocity) in birb.iter_mut() {
         transform.translation.y = 0.0;
@@ -82,31 +78,23 @@ pub fn score_tick(time: Res<Time>, mut score: ResMut<Score>, mut score_timer: Re
 /// Updates the score text to the current score
 pub fn on_score_change(score: Res<Score>, mut text: Query<&mut Text, With<ScoreText>>) {
     for mut text in text.iter_mut() {
-        text.sections[0].value = score.to_string();
+        **text = score.to_string();
     }
 }
 
 /// Sets up the initial state of the game
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands
-        .spawn(TextBundle::from_sections([TextSection::new(
-            "0",
-            TextStyle {
-                font_size: 40.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        )]))
-        .insert(ScoreText);
-    commands.spawn(Camera2dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 10.0),
-        ..default()
-    });
-    commands.spawn(BirbBundle::new(&asset_server));
+    commands.spawn((
+        ScoreText,
+        TextColor(Color::WHITE),
+        TextFont { font_size: 40.0, ..default() },
+    ));
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 10.0)));
+    commands.spawn(Birb::new(&asset_server));
 }
 
 /// Checks if the birb has collided with any pipes, if so, sets the game state to loss
-pub fn on_birb_collide(
+pub fn check_birb_collisions(
     birb_query: Query<(&Collider, &Transform), With<Birb>>,
     pipes: Query<(&Collider, &Transform), With<Pipe>>,
     mut next_state: ResMut<NextState<GameState>>,
@@ -154,24 +142,23 @@ pub fn spawn_pipe(
         const MAX_GAP_DIFF: i32 = 95;
         const MIN_GAP: i32 = 400;
         let gap = fastrand::i32(MIN_GAP..(MIN_GAP + MAX_GAP_DIFF));
-        commands.spawn(PipeBundle::new(
-            &asset_server,
-            Vec2::new(HALF_WIDTH + 100.0, y as f32),
+        let pipe = Pipe::new(&asset_server);
+        commands.spawn((
+            pipe.clone(),
+            Transform::from_xyz(HALF_WIDTH + 100.0, y as f32 + gap as f32, 0.0).with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
         ));
-        commands.spawn(
-            PipeBundle::new(
-                &asset_server,
-                Vec2::new(HALF_WIDTH + 100.0, y as f32 + gap as f32),
-            )
-            .flipped(),
-        );
+
+        commands.spawn((
+            pipe,
+            Transform::from_xyz(HALF_WIDTH + 100.0, y as f32, 0.0),
+        ));
     }
 }
 
 /// Draws a rectangle gizmo for all entities with a Collider and Transform component
 pub fn draw_collider_gizmos(query: Query<(&Collider, &Transform)>, mut gizmos: Gizmos) {
     for (collider, transform) in query.iter() {
-        gizmos.rect_2d(transform.translation.truncate(), 0.0, collider.size(), RED);
+        gizmos.rect_2d(transform.translation.truncate(),collider.size(), RED);
     }
 }
 
@@ -183,11 +170,10 @@ pub fn move_pipes(
 ) {
     const PIPE_SPEED: f32 = 100.0;
     for (entity, mut transform) in query.iter_mut() {
-        transform.translation.x -= PIPE_SPEED * time.delta_seconds();
+        transform.translation.x -= PIPE_SPEED * time.delta_secs();
         // Despawns pipes when they are off-screen by 50 units
         if transform.translation.x < -WINDOW_WIDTH / 2.0 - 50.0 {
             commands.entity(entity).despawn_recursive();
-            println!("despawned pipe");
         }
     }
 }
@@ -207,7 +193,7 @@ pub fn on_space_pressed(
 /// Applies gravity to all entities with a Velocity component
 pub fn apply_gravity(mut query: Query<&mut Velocity>, gravity: Res<Gravity>, time: Res<Time>) {
     for mut velocity in query.iter_mut() {
-        **velocity -= **gravity * time.delta_seconds();
+        **velocity -= **gravity * time.delta_secs();
         **velocity = velocity.clamp(MIN_VELOCITY, MAX_VELOCITY);
     }
 }
@@ -221,6 +207,6 @@ pub fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<T
         {
             continue;
         }
-        transform.translation += Vec3::new(0.0, **velocity, 0.0) * time.delta_seconds();
+        transform.translation += Vec3::new(0.0, **velocity, 0.0) * time.delta_secs();
     }
 }

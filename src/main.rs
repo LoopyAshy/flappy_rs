@@ -4,7 +4,6 @@ use std::time::Duration;
 
 use bevy::{color::palettes::css::RED, prelude::*};
 
-mod bundles;
 mod components;
 mod resources;
 mod systems;
@@ -71,7 +70,7 @@ fn main() {
         )
         .add_systems(
             Update,
-            (spawn_pipe, move_pipes, on_birb_collide)
+            (spawn_pipe, move_pipes, check_birb_collisions)
                 .chain()
                 .run_if(in_state(GameState::Playing)),
         )

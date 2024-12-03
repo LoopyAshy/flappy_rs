@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14.2", default-features = false, features = ["multi_threaded", "default_font", "bevy_sprite", "bevy_ui", "bevy_asset", "bevy_winit", "png", "bevy_state", "bevy_gizmos"] }
+bevy = { version = "0.15.0", default-features = false, features = ["multi_threaded", "default_font", "bevy_window", "bevy_sprite", "bevy_ui", "bevy_asset", "bevy_winit", "png", "bevy_state", "bevy_gizmos"] }
 fastrand = "2.2.0"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"], optional = true }
 
