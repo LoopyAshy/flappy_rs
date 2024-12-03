@@ -87,7 +87,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         ScoreText,
         TextColor(Color::WHITE),
-        TextFont { font_size: 40.0, ..default() },
+        TextFont {
+            font_size: 40.0,
+            ..default()
+        },
     ));
     commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 10.0)));
     commands.spawn(Birb::new(&asset_server));
@@ -145,20 +148,18 @@ pub fn spawn_pipe(
         let pipe = Pipe::new(&asset_server);
         commands.spawn((
             pipe.clone(),
-            Transform::from_xyz(HALF_WIDTH + 100.0, y as f32 + gap as f32, 0.0).with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
+            Transform::from_xyz(HALF_WIDTH + 100.0, y as f32 + gap as f32, 0.0)
+                .with_rotation(Quat::from_rotation_z(std::f32::consts::PI)),
         ));
 
-        commands.spawn((
-            pipe,
-            Transform::from_xyz(HALF_WIDTH + 100.0, y as f32, 0.0),
-        ));
+        commands.spawn((pipe, Transform::from_xyz(HALF_WIDTH + 100.0, y as f32, 0.0)));
     }
 }
 
 /// Draws a rectangle gizmo for all entities with a Collider and Transform component
 pub fn draw_collider_gizmos(query: Query<(&Collider, &Transform)>, mut gizmos: Gizmos) {
     for (collider, transform) in query.iter() {
-        gizmos.rect_2d(transform.translation.truncate(),collider.size(), RED);
+        gizmos.rect_2d(transform.translation.truncate(), collider.size(), RED);
     }
 }
 

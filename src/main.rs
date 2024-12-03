@@ -49,7 +49,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(Startup, setup)
         .init_state::<GameState>()
         .insert_resource(Gravity(DEFAULT_GRAVITY))
         .insert_resource(PipeSpawnTimer(Timer::new(
@@ -62,22 +61,19 @@ fn main() {
         )))
         .insert_resource(Score(0))
         .insert_resource(DrawColliders(DRAW_COLLIDERS))
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (score_tick, on_space_pressed, apply_gravity, apply_velocity)
-                .chain()
-                .run_if(in_state(GameState::Playing)),
-        )
-        .add_systems(
-            Update,
-            (spawn_pipe, move_pipes, check_birb_collisions)
-                .chain()
-                .run_if(in_state(GameState::Playing)),
-        )
-        .add_systems(Update, await_restart.run_if(in_state(GameState::Loss)))
-        .add_systems(
-            Update,
-            draw_collider_gizmos.run_if(|draw_colliders: Res<DrawColliders>| **draw_colliders),
+            (
+                (score_tick, on_space_pressed, apply_gravity, apply_velocity)
+                    .chain()
+                    .run_if(in_state(GameState::Playing)),
+                (spawn_pipe, move_pipes, check_birb_collisions)
+                    .chain()
+                    .run_if(in_state(GameState::Playing)),
+                draw_collider_gizmos.run_if(|draw_colliders: Res<DrawColliders>| **draw_colliders),
+                await_restart.run_if(in_state(GameState::Loss)),
+            ),
         )
         .add_systems(OnEnter(GameState::Loss), on_loss)
         .add_systems(OnExit(GameState::Loss), on_restart)

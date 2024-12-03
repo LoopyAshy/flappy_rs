@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::*;
+use bevy::prelude::*;
 
 #[derive(Debug, Default, Component, Clone)]
 #[require(Text(|| Text::new("0")))]
@@ -23,10 +23,14 @@ pub struct Birb;
 
 impl Birb {
     pub fn new(asset_server: &AssetServer) -> (Self, Collider, Sprite) {
-        (Self, Collider(Rect {
-            min: Vec2::new(-BIRB_WIDTH / 2.0, -BIRB_HEIGHT / 2.0),
-            max: Vec2::new(BIRB_WIDTH / 2.0, BIRB_HEIGHT / 2.0),
-        }), Sprite::from_image(asset_server.load::<Image>("bluebird-midflap.png")))
+        (
+            Self,
+            Collider(Rect {
+                min: Vec2::new(-BIRB_WIDTH / 2.0, -BIRB_HEIGHT / 2.0),
+                max: Vec2::new(BIRB_WIDTH / 2.0, BIRB_HEIGHT / 2.0),
+            }),
+            Sprite::from_image(asset_server.load::<Image>("bluebird-midflap.png")),
+        )
     }
 }
 
@@ -37,10 +41,14 @@ pub struct Pipe;
 
 impl Pipe {
     pub fn new(asset_server: &AssetServer) -> (Self, Sprite, Collider) {
-        (Self, Sprite::from_image(asset_server.load::<Image>("pipe-green.png")), Collider(Rect {
-            min: Vec2::new(-PIPE_WIDTH / 2.0, -PIPE_HEIGHT / 2.0),
-            max: Vec2::new(PIPE_WIDTH / 2.0, PIPE_HEIGHT / 2.0),
-        }))
+        (
+            Self,
+            Sprite::from_image(asset_server.load::<Image>("pipe-green.png")),
+            Collider(Rect {
+                min: Vec2::new(-PIPE_WIDTH / 2.0, -PIPE_HEIGHT / 2.0),
+                max: Vec2::new(PIPE_WIDTH / 2.0, PIPE_HEIGHT / 2.0),
+            }),
+        )
     }
 }
 
